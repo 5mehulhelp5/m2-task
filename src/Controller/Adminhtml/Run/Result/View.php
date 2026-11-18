@@ -2,72 +2,65 @@
 
 declare(strict_types=1);
 
-namespace Infrangible\Task\Controller\Adminhtml\Run\Result;
-
-use Exception;
-use Infrangible\BackendWidget\Controller\Backend\Object\Edit;
-use Infrangible\Task\Traits\Run;
-use Magento\Framework\View\Element\AbstractBlock;
-use Magento\Framework\View\Result\Page;
-
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2025 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
+namespace Infrangible\Task\Controller\Adminhtml\Run\Result;
+
+use Infrangible\BackendWidget\Controller\Backend\Object\Edit;
+use Infrangible\Task\Block\Adminhtml\Run\View as RunView;
+use Infrangible\Task\Traits\Run;
+use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Controller\ResultInterface;
+
+/**
+ * Shows the log files of a run.
  */
 class View extends Edit
 {
     use Run;
 
+    /**
+     * Returns the message if the run was not found.
+     *
+     * @return string
+     */
     protected function getObjectNotFoundMessage(): string
     {
         return __('Could not find run!')->render();
     }
 
     /**
-     * @return Page|void
-     * @throws Exception
+     * Shows the log files of the run, or redirects to the list of runs, if the run was not found.
+     *
+     * @return ResultInterface|ResponseInterface
      */
-    public function execute()
+    public function execute(): ResultInterface|ResponseInterface
     {
-        $object = $this->initObject();
+        $run = $this->initEditableObject();
 
-        if (! $object) {
-            $this->_redirect(
-                $this->getIndexUrlRoute(),
-                $this->getIndexUrlParams()
-            );
-
-            return;
-        }
-
-        if ($object->getId() && ! $this->allowEdit() && ! $this->allowView()) {
-            $this->_redirect(
-                $this->getIndexUrlRoute(),
-                $this->getIndexUrlParams()
-            );
-
-            return;
+        if ($run === null) {
+            return $this->getResponse();
         }
 
         $this->initAction();
 
-        $blockClass = \Infrangible\Task\Block\Adminhtml\Run\View::class;
+        $blockData = ['run_id' => $run->getId()];
 
-        $blockData = ['run_id' => $object->getId()];
+        $backRoute = $this->getRequest()->getParam('back_route');
 
-        if ($this->getRequest()->getParam('back_route')) {
-            $blockData[ 'back_route' ] = $this->getRequest()->getParam('back_route');
+        if (is_string($backRoute) && $backRoute !== '') {
+            $blockData[ 'back_route' ] = $backRoute;
         }
 
-        /** @var AbstractBlock $block */
-        $block = $this->_view->getLayout()->createBlock(
-            $blockClass,
-            '',
-            ['data' => $blockData]
-        );
+        $block = $this->_view->getLayout()->createBlock(RunView::class, '', ['data' => $blockData]);
 
-        $this->_addContent($block);
+        if ($block instanceof RunView) {
+            $this->_addContent($block);
+        }
 
         $this->finishAction(__('View Log')->render());
 

@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
  */
-use Magento\Backend\Block\Template;
+
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+
 /** @var Template $block */
+/** @var Escaper $escaper */
+
+$reason = $block->getData('reason');
 ?>
-<h2><?php echo $this->escapeHtml(__('Error Executing Task')); ?></h2>
-<div style="font-family: 'courier new', monospace;">
-    <?php echo nl2br($this->escapeHtml(trim($block->getData('reason')))); ?>
+<h2><?= $escaper->escapeHtml(__('Error Executing Task')) ?></h2>
+<div class="task-log">
+    <?= /* @noEscape */ nl2br($escaper->escapeHtml(trim(is_string($reason) ? $reason : ''))) ?>
 </div>

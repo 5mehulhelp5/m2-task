@@ -2,88 +2,42 @@
 
 declare(strict_types=1);
 
-namespace Infrangible\Task\Console\Command\Script;
-
-use Exception;
-use Magento\Framework\App\Area;
-use Magento\Framework\Phrase;
-use Magento\Framework\Phrase\RendererInterface;
-use Magento\Store\Model\App\Emulation;
-use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Output\OutputInterface;
-
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
  */
-abstract class Task extends Base
+
+namespace Infrangible\Task\Console\Command\Script;
+
+/**
+ * Script of a command that runs one task with each store of the option --store_code. The command fails if the task
+ * failed.
+ */
+abstract class Task extends TaskList
 {
-    /** @var \Infrangible\Task\Helper\Task */
-    protected $taskHelper;
-
-    /** @var Emulation */
-    protected $appEmulation;
-
-    /** @var RendererInterface */
-    protected $renderer;
-
-    public function __construct(
-        \Infrangible\Task\Helper\Task $taskHelper,
-        Emulation $appEmulation,
-        RendererInterface $renderer
-    ) {
-        $this->taskHelper = $taskHelper;
-        $this->appEmulation = $appEmulation;
-        $this->renderer = $renderer;
+    /**
+     * Returns the task.
+     *
+     * @return array
+     * @phpstan-return array<string, string>
+     */
+    protected function getTaskList(): array
+    {
+        return [$this->getTaskName() => $this->getClassName()];
     }
 
     /**
-     * Executes the current command.
+     * Returns the name of the task.
      *
-     * @return int 0 if everything went fine, or an error code
-     * @throws Exception
+     * @return string
      */
-    public function execute(InputInterface $input, OutputInterface $output): int
-    {
-        $storeCodes = $this->getStoreCodes($input);
-
-        $taskSuccess = true;
-
-        foreach ($storeCodes as $storeCode) {
-            $this->appEmulation->startEnvironmentEmulation(
-                $storeCode,
-                Area::AREA_ADMINHTML,
-                true
-            );
-
-            Phrase::setRenderer($this->renderer);
-
-            $task = $this->taskHelper->getTask($this->getClassName());
-
-            $this->prepareTask(
-                $task,
-                $input
-            );
-
-            $taskSuccess = $this->taskHelper->launchTask(
-                    $task,
-                    $storeCode,
-                    $this->getTaskName(),
-                    null,
-                    $input->getOption('log_level'),
-                    $input->getOption('console'),
-                    $input->getOption('test')
-                ) || $taskSuccess;
-
-            $this->appEmulation->stopEnvironmentEmulation();
-        }
-
-        return $taskSuccess ? Command::SUCCESS : Command::FAILURE;
-    }
-
     abstract protected function getTaskName(): string;
 
+    /**
+     * Returns the class of the task.
+     *
+     * @return string
+     */
     abstract protected function getClassName(): string;
 }

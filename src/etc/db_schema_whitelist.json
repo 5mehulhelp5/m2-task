@@ -1,0 +1,24 @@
+{
+    "task_run": {
+        "column": {
+            "run_id": true,
+            "store_code": true,
+            "task_name": true,
+            "task_id": true,
+            "process_id": true,
+            "test": true,
+            "success": true,
+            "empty_run": true,
+            "max_memory_usage": true,
+            "start_at": true,
+            "finish_at": true
+        },
+        "index": {
+            "TASK_RUN_FINISH_AT": true,
+            "TASK_RUN_START_AT": true
+        },
+        "constraint": {
+            "PRIMARY": true
+        }
+    }
+}

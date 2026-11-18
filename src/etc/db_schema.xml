@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+
+<!--
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+-->
+<schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Setup/Declaration/Schema/etc/schema.xsd">
+    <table name="task_run" resource="default" engine="innodb" comment="Runs of tasks">
+        <column xsi:type="int" name="run_id" unsigned="true" nullable="false" identity="true" comment="The identifier of the run"/>
+        <column xsi:type="varchar" name="store_code" length="255" nullable="false" comment="Store Code"/>
+        <column xsi:type="varchar" name="task_name" length="255" nullable="false" comment="Task Name"/>
+        <column xsi:type="varchar" name="task_id" length="255" nullable="false" comment="Task ID"/>
+        <column xsi:type="int" name="process_id" unsigned="true" nullable="false" default="0" comment="Process ID"/>
+        <column xsi:type="smallint" name="test" unsigned="true" nullable="false" default="0" comment="Test Mode"/>
+        <column xsi:type="smallint" name="success" unsigned="true" nullable="false" default="1" comment="Success"/>
+        <column xsi:type="smallint" name="empty_run" unsigned="true" nullable="false" default="0" comment="Empty Run"/>
+        <column xsi:type="int" name="max_memory_usage" nullable="true" comment="Max Memory Usage in MB, empty if the run broke"/>
+        <column xsi:type="datetime" name="start_at" nullable="false" comment="Start"/>
+        <column xsi:type="datetime" name="finish_at" nullable="true" comment="Finish"/>
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="run_id"/>
+        </constraint>
+        <index referenceId="TASK_RUN_FINISH_AT" indexType="btree">
+            <column name="finish_at"/>
+        </index>
+        <index referenceId="TASK_RUN_START_AT" indexType="btree">
+            <column name="start_at"/>
+        </index>
+    </table>
+</schema>

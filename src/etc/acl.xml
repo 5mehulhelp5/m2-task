@@ -2,7 +2,7 @@
 
 <!--
  * @author      Andreas Knollmann
- * @copyright   2014-2023 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
 -->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Acl/etc/acl.xsd">
@@ -16,7 +16,7 @@
                         </resource>
                     </resource>
                 </resource>
-                <resource id="Infrangible_Task::infrangible_task" title="Tasks" sortOrder="360">
+                <resource id="Infrangible_Task::infrangible_task" title="Tasks" translate="title" sortOrder="360">
                     <resource id="Infrangible_Task::task_run" title="Run" translate="title" sortOrder="10"/>
                 </resource>
             </resource>

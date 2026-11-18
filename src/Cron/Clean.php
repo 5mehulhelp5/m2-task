@@ -2,106 +2,82 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\Task\Cron;
 
-use FeWeDev\Base\Files;
-use Infrangible\Core\Helper\Stores;
+use Infrangible\Task\Logger\LogFiles;
 use Infrangible\Task\Model\ResourceModel\Run\CollectionFactory;
 use Infrangible\Task\Model\ResourceModel\RunFactory;
 use Infrangible\Task\Model\Run;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Filesystem\Driver\File;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2025 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * Deletes the runs that started more than 90 days ago, with their log files.
  */
 class Clean
 {
-    /** @var Stores */
-    protected $storeHelper;
-
-    /** @var Files */
-    protected $fileHelper;
-
-    /** @var CollectionFactory */
-    protected $runCollectionFactory;
-
-    /** @var RunFactory */
-    protected $runResourceFactory;
-
+    /**
+     * @param CollectionFactory $runCollectionFactory
+     * @param RunFactory $runResourceFactory
+     * @param LogFiles $logFiles
+     * @param File $file
+     */
     public function __construct(
-        Stores $storeHelper,
-        Files $fileHelper,
-        CollectionFactory $runCollectionFactory,
-        RunFactory $runResourceFactory
+        protected CollectionFactory $runCollectionFactory,
+        protected RunFactory $runResourceFactory,
+        protected LogFiles $logFiles,
+        protected File $file
     ) {
-        $this->storeHelper = $storeHelper;
-        $this->fileHelper = $fileHelper;
-        $this->runCollectionFactory = $runCollectionFactory;
-        $this->runResourceFactory = $runResourceFactory;
     }
 
     /**
+     * Deletes the old runs and their log files.
+     *
+     * @return void
+     * @throws FileSystemException
      * @throws \Exception
      */
     public function execute(): void
     {
         $collection = $this->runCollectionFactory->create();
-
         $collection->addStartAtFilter();
 
         $runResource = $this->runResourceFactory->create();
 
         /** @var Run $run */
         foreach ($collection as $run) {
-            $taskName = $run->getTaskName();
-            $taskId = $run->getTaskId();
-
-            foreach ($this->storeHelper->getStores(true) as $store) {
-                $storeCode = $store->getCode();
-
-                $logName = implode(
-                    '/',
-                    [
-                        BP,
-                        'var',
-                        'log',
-                        'task',
-                        $taskName,
-                        $storeCode,
-                        sprintf(
-                            '%s.log',
-                            $taskId
-                        )
-                    ]
+            foreach ([LogFiles::LOG, LogFiles::ERROR] as $extension) {
+                $path = $this->logFiles->getPath(
+                    $this->stringValue($run->getData('task_name')),
+                    $this->stringValue($run->getData('store_code')),
+                    $this->stringValue($run->getData('task_id')),
+                    $extension
                 );
 
-                if (file_exists($logName)) {
-                    $this->fileHelper->removeFile($logName);
-                }
-
-                $errorLog = implode(
-                    '/',
-                    [
-                        BP,
-                        'var',
-                        'log',
-                        'task',
-                        $taskName,
-                        $storeCode,
-                        sprintf(
-                            '%s.err',
-                            $taskId
-                        )
-                    ]
-                );
-
-                if (file_exists($errorLog)) {
-                    $this->fileHelper->removeFile($errorLog);
+                if ($this->file->isFile($path)) {
+                    $this->file->deleteFile($path);
                 }
             }
 
             $runResource->delete($run);
         }
+    }
+
+    /**
+     * Returns a value of the run as string.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    private function stringValue(mixed $value): string
+    {
+        return is_scalar($value) ? (string)$value : '';
     }
 }

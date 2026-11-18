@@ -2,82 +2,74 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\Task\Controller\Adminhtml\Run;
 
-use FeWeDev\Base\Variables;
+use Infrangible\Task\Helper\Values;
 use Infrangible\Task\Model\Session;
 use Magento\Backend\App\Action;
 use Magento\Backend\App\Action\Context;
-use Magento\Backend\Block\Template;
-use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Controller\ResultInterface;
+use Magento\Framework\View\Element\Template;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * Shows why a task could not run, once after the redirect of the controller that tried to run it.
  */
-class Error
-    extends Action
+class Error extends Action
 {
-    /** @var Variables */
-    protected $variables;
-
-    /** @var Session */
-    protected $taskSession;
-
     /**
-     * @param Context   $context
-     * @param Variables $variables
-     * @param Session   $taskSession
+     * @param Context $context
+     * @param Session $taskSession
+     * @param Values $values
      */
-    public function __construct(Context $context, Variables $variables, Session $taskSession)
+    public function __construct(Context $context, protected Session $taskSession, protected Values $values)
     {
         parent::__construct($context);
-
-        $this->variables = $variables;
-
-        $this->taskSession = $taskSession;
     }
 
     /**
-     * Execute action based on request and return result
+     * Allows the page to users who may run the task that failed.
      *
-     * Note: Request will be added as operation argument in future
-     *
-     * @return void
-     * @throws LocalizedException
-     */
-    public function execute()
-    {
-        $reason = $this->taskSession->getData('task_error_reason');
-
-        if (!$this->variables->isEmpty($reason)) {
-            $this->_view->loadLayout(['default', 'infrangible_task_run_error']);
-
-            /** @var Template|bool $errorBlock */
-            $errorBlock = $this->_view->getLayout()->getBlock('task_error');
-
-            if ($errorBlock === false) {
-                throw new LocalizedException(__('Result block not found in layout'));
-            }
-
-            $errorBlock->setData('reason', $reason);
-
-            $this->taskSession->unsetData('task_error_reason');
-
-            $this->_view->renderLayout();
-        } else {
-            $this->_redirect('/');
-        }
-    }
-
-    /**
      * @return bool
      */
     protected function _isAllowed(): bool
     {
-        return $this->_authorization->isAllowed(
-            'Infrangible_Task::infrangible_task_task_'.$this->taskSession->getData('task_name')
-        );
+        $taskResource = $this->values->string($this->taskSession->getData('task_resource'));
+
+        return $this->_authorization->isAllowed('Infrangible_Task::infrangible_task') &&
+            ($taskResource === '' || $this->_authorization->isAllowed($taskResource));
+    }
+
+    /**
+     * Shows the reason, or redirects to the dashboard, if there is none.
+     *
+     * @return ResultInterface|ResponseInterface
+     */
+    public function execute(): ResultInterface|ResponseInterface
+    {
+        $reason = $this->values->string($this->taskSession->getData('task_error_reason'));
+
+        if ($reason === '') {
+            return $this->resultRedirectFactory->create()->setPath('admin/dashboard');
+        }
+
+        // @phpstan-ignore argument.type (Magento also accepts a list of layout handles)
+        $this->_view->loadLayout(['default', 'infrangible_task_run_error']);
+
+        $errorBlock = $this->_view->getLayout()->getBlock('task_error');
+
+        if ($errorBlock instanceof Template) {
+            $errorBlock->setData('reason', $reason);
+        }
+
+        $this->taskSession->unsetData('task_error_reason');
+
+        return $this->_view->getPage();
     }
 }

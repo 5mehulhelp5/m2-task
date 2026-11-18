@@ -2,80 +2,69 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\Task\Model;
 
-use Exception;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Model\AbstractModel;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
- *
- * @method int getId()
- * @method void setId(int $id)
- * @method string getStoreCode()
- * @method void setStoreCode(string $storeCode)
- * @method string getTaskName()
- * @method void setTaskName(string $taskName)
- * @method string getTaskId()
- * @method void setTaskId(string $taskId)
- * @method string getProcessId()
- * @method void setProcessId(string $processId)
- * @method int getSuccess()
- * @method void setSuccess(int $success)
- * @method int getEmptyRun()
- * @method void setEmptyRun(int $emptyRun)
- * @method int getTest()
- * @method void setTest(int $test)
- * @method int getMaxMemoryUsage()
- * @method void setMaxMemoryUsage(int $maxMemoryUsage)
- * @method string getStartAt()
- * @method void setStartAt(string $startAt)
- * @method string getFinishAt()
- * @method void setFinishAt(string $finishAt)
+ * A run of a task, from its start until it finished.
  */
-class Run
-    extends AbstractModel
+class Run extends AbstractModel
 {
     /**
+     * Initializes the resource model.
+     *
      * @return void
+     * @throws LocalizedException
      */
-    public function _construct()
+    public function _construct(): void
     {
         $this->_init(ResourceModel\Run::class);
     }
 
     /**
+     * Starts the run with the process of PHP.
+     *
      * @param string $storeCode
      * @param string $taskName
      * @param string $taskId
-     * @param bool   $test
+     * @param bool $test
      *
-     * @throws Exception
+     * @return void
      */
-    public function start(string $storeCode, string $taskName, string $taskId, bool $test)
+    public function start(string $storeCode, string $taskName, string $taskId, bool $test): void
     {
         $processId = getmypid();
 
-        $this->setStoreCode($storeCode);
-        $this->setTaskName($taskName);
-        $this->setTaskId($taskId);
-        $this->setProcessId($processId === false ? '' : strval($processId));
-        $this->setTest($test ? 1 : 0);
-        $this->setStartAt(gmdate('Y-m-d H:i:s'));
+        $this->setData('store_code', $storeCode);
+        $this->setData('task_name', $taskName);
+        $this->setData('task_id', $taskId);
+        $this->setData('process_id', $processId === false ? 0 : $processId);
+        $this->setData('test', $test ? 1 : 0);
+        $this->setData('start_at', gmdate('Y-m-d H:i:s'));
     }
 
     /**
-     * @param int  $maxMemoryUsage
+     * Finishes the run.
+     *
+     * @param int $maxMemoryUsage in MB
      * @param bool $success
      * @param bool $emptyRun
+     *
+     * @return void
      */
-    public function finish(int $maxMemoryUsage, bool $success, bool $emptyRun)
+    public function finish(int $maxMemoryUsage, bool $success, bool $emptyRun): void
     {
-        $this->setMaxMemoryUsage($maxMemoryUsage);
-        $this->setSuccess($success ? 1 : 0);
-        $this->setEmptyRun($emptyRun ? 1 : 0);
-        $this->setFinishAt(gmdate('Y-m-d H:i:s'));
+        $this->setData('max_memory_usage', $maxMemoryUsage);
+        $this->setData('success', $success ? 1 : 0);
+        $this->setData('empty_run', $emptyRun ? 1 : 0);
+        $this->setData('finish_at', gmdate('Y-m-d H:i:s'));
     }
 }

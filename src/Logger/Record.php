@@ -2,34 +2,30 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\Task\Logger;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * A record of a summary: the PSR-3 log level and the message.
  */
 class Record
 {
-    /** @var string */
-    private $level;
-
-    /** @var string */
-    private $message;
-
     /**
-     * Record constructor.
-     *
      * @param string $level
      * @param string $message
      */
-    public function __construct(string $level, string $message)
+    public function __construct(private string $level, private string $message)
     {
-        $this->level = $level;
-        $this->message = $message;
     }
 
     /**
+     * Returns the PSR-3 log level.
+     *
      * @return string
      */
     public function getLevel(): string
@@ -38,14 +34,20 @@ class Record
     }
 
     /**
+     * Sets the PSR-3 log level.
+     *
      * @param string $level
+     *
+     * @return void
      */
-    public function setLevel(string $level)
+    public function setLevel(string $level): void
     {
         $this->level = $level;
     }
 
     /**
+     * Returns the message.
+     *
      * @return string
      */
     public function getMessage(): string
@@ -54,9 +56,13 @@ class Record
     }
 
     /**
+     * Sets the message.
+     *
      * @param string $message
+     *
+     * @return void
      */
-    public function setMessage(string $message)
+    public function setMessage(string $message): void
     {
         $this->message = $message;
     }

@@ -2,74 +2,65 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\Task\Block\Adminhtml\Run;
 
-use Exception;
-use Infrangible\Core\Helper\Files;
+use Infrangible\Task\Logger\LogFiles;
+use Infrangible\Task\Model\ResourceModel\RunFactory as RunResourceFactory;
 use Infrangible\Task\Model\Run;
 use Infrangible\Task\Model\RunFactory;
 use Magento\Backend\Block\Template;
 use Magento\Backend\Block\Template\Context;
 use Magento\Backend\Block\Widget\ButtonFactory;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Filesystem\Driver\File;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2025 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * Shows the log file and the error log file of a run.
  */
 class View extends Template
 {
-    /** @var Files */
-    protected $fileHelper;
-
-    /** @var RunFactory $runResourceFactory */
-    protected $runFactory;
-
-    /** @var \Infrangible\Task\Model\ResourceModel\RunFactory $runResourceFactory */
-    protected $runResourceFactory;
-
-    /** @var ButtonFactory */
-    protected $buttonFactory;
-
-    /** @var Run */
-    private $run;
+    /** Route of the list of runs, the default target of the back button. */
+    private const INDEX_ROUTE = 'infrangible_task/run_result/index';
 
     /** @var string */
-    private $logFileName;
+    protected $_template = 'Infrangible_Task::infrangible/task/run.phtml';
 
-    /** @var string */
-    private $errorFileName;
+    /** @var Run|null */
+    private ?Run $run = null;
 
+    /**
+     * @param Context $context
+     * @param RunFactory $runFactory
+     * @param RunResourceFactory $runResourceFactory
+     * @param ButtonFactory $buttonFactory
+     * @param LogFiles $logFiles
+     * @param File $file
+     * @param array $data
+     * @phpstan-param array<string, mixed> $data
+     */
     public function __construct(
-        Files $fileHelper,
         Context $context,
-        RunFactory $runFactory,
-        \Infrangible\Task\Model\ResourceModel\RunFactory $runResourceFactory,
-        ButtonFactory $buttonFactory,
+        protected RunFactory $runFactory,
+        protected RunResourceFactory $runResourceFactory,
+        protected ButtonFactory $buttonFactory,
+        protected LogFiles $logFiles,
+        protected File $file,
         array $data = []
     ) {
-        parent::__construct(
-            $context,
-            $data
-        );
-
-        $this->fileHelper = $fileHelper;
-
-        $this->runFactory = $runFactory;
-        $this->runResourceFactory = $runResourceFactory;
-        $this->buttonFactory = $buttonFactory;
+        parent::__construct($context, $data);
     }
 
-    protected function _construct(): void
-    {
-        $this->setData(
-            'template',
-            'Infrangible_Task::infrangible/task/run.phtml'
-        );
-
-        parent::_construct();
-    }
-
+    /**
+     * Returns the run of the parameter run_id.
+     *
+     * @return Run
+     */
     protected function getRun(): Run
     {
         if ($this->run === null) {
@@ -77,128 +68,63 @@ class View extends Template
 
             $runId = $this->getData('run_id');
 
-            if (! empty($runId)) {
-                $this->runResourceFactory->create()->load(
-                    $this->run,
-                    $runId
-                );
+            if (is_scalar($runId) && (string)$runId !== '') {
+                $this->runResourceFactory->create()->load($this->run, $runId);
             }
         }
 
         return $this->run;
     }
 
+    /**
+     * Returns the path of the log file of the run, or an empty string if there is no run.
+     *
+     * @return string
+     */
     public function getLogFileName(): string
     {
-        if ($this->logFileName === null) {
-            $run = $this->getRun();
-
-            if ($run->getId()) {
-                try {
-                    $this->logFileName = $this->fileHelper->determineFilePath(
-                        sprintf(
-                            'var/log/task/%s/%s/%s.log',
-                            $run->getTaskName(),
-                            $run->getStoreCode(),
-                            $run->getTaskId()
-                        )
-                    );
-                } catch (Exception $exception) {
-                }
-            }
-        }
-
-        return $this->logFileName;
+        return $this->getFileName(LogFiles::LOG);
     }
 
-    public function getContent(): array
-    {
-        $content = [];
-
-        $logFileName = $this->getLogFileName();
-
-        if (file_exists($logFileName)) {
-            $fileContent = file_get_contents($logFileName);
-
-            if (is_string($fileContent)) {
-                $content = preg_split(
-                    '/\n/',
-                    $fileContent
-                );
-
-                $content = array_map(
-                    'trim',
-                    $content
-                );
-            } else {
-                $content[] = 'Invalid file content!';
-            }
-        } else {
-            $content[] = sprintf(
-                'Log file does not exists at: %s',
-                $logFileName
-            );
-        }
-
-        return $content;
-    }
-
+    /**
+     * Returns the path of the error log file of the run, or an empty string if there is no run.
+     *
+     * @return string
+     */
     public function getErrorFileName(): string
     {
-        if ($this->errorFileName === null) {
-            $run = $this->getRun();
-
-            if ($run->getId()) {
-                try {
-                    $this->errorFileName = $this->fileHelper->determineFilePath(
-                        sprintf(
-                            'var/log/task/%s/%s/%s.err',
-                            $run->getTaskName(),
-                            $run->getStoreCode(),
-                            $run->getTaskId()
-                        )
-                    );
-                } catch (Exception $exception) {
-                }
-            }
-        }
-
-        return $this->errorFileName;
+        return $this->getFileName(LogFiles::ERROR);
     }
 
+    /**
+     * Returns the lines of the log file, or a message if it does not exist or cannot be read.
+     *
+     * @return string[]
+     */
+    public function getContent(): array
+    {
+        $lines = $this->getLines($this->getLogFileName());
+
+        return $lines ?? [__('Log file does not exist at: %1', $this->getLogFileName())->render()];
+    }
+
+    /**
+     * Returns the lines of the error log file, none if it does not exist, or a message if it cannot be read.
+     *
+     * @return string[]
+     */
     public function getErrorContent(): array
     {
-        $content = [];
-
-        $errorFileName = $this->getErrorFileName();
-
-        if (file_exists($errorFileName)) {
-            $fileContent = file_get_contents($errorFileName);
-
-            if (is_string($fileContent)) {
-                $content = preg_split(
-                    '/\n/',
-                    $fileContent
-                );
-
-                $content = array_map(
-                    'trim',
-                    $content
-                );
-            } else {
-                $content[] = 'Invalid file content!';
-            }
-        }
-
-        return $content;
+        return $this->getLines($this->getErrorFileName()) ?? [];
     }
 
+    /**
+     * Returns the button back to the page that showed the link, or to the list of runs.
+     *
+     * @return string
+     */
     public function getBackButtonHtml(): string
     {
-        $backRoute = $this->getData('back_route');
-
-        $backRoute = $backRoute ? base64_decode($backRoute) : 'infrangible_task/run_result/index';
-
         $backButton = $this->buttonFactory->create(
             [
                 'data' => [
@@ -208,12 +134,89 @@ class View extends Template
                     'class'   => 'back',
                     'onclick' => sprintf(
                         "window.location.href = '%s';",
-                        $this->getUrl($backRoute)
-                    ),
+                        $this->_escaper->escapeJs($this->getUrl($this->getBackRoute()))
+                    )
                 ]
             ]
         );
 
         return $backButton->toHtml();
+    }
+
+    /**
+     * Returns the route of the back button.
+     *
+     * The base64 encoded route of the parameter back_route, if it is an admin route (route/controller/action),
+     * otherwise the list of runs.
+     *
+     * @return string
+     */
+    public function getBackRoute(): string
+    {
+        $backRoute = $this->getData('back_route');
+        // phpcs:ignore Magento2.Functions.DiscouragedFunction -- the route is a parameter of the URL
+        $backRoute = is_string($backRoute) ? base64_decode($backRoute, true) : false;
+
+        return is_string($backRoute) && preg_match('/^[a-z0-9_]+(\/[a-z0-9_]+){0,2}$/i', $backRoute) ?
+            $backRoute : self::INDEX_ROUTE;
+    }
+
+    /**
+     * Returns the path of a log file of the run, or an empty string if there is no run or no log directory.
+     *
+     * @param string $extension
+     *
+     * @return string
+     */
+    private function getFileName(string $extension): string
+    {
+        $run = $this->getRun();
+
+        if (! $run->getId()) {
+            return '';
+        }
+
+        try {
+            return $this->logFiles->getPath(
+                $this->stringValue($run->getData('task_name')),
+                $this->stringValue($run->getData('store_code')),
+                $this->stringValue($run->getData('task_id')),
+                $extension
+            );
+        } catch (FileSystemException) {
+            return '';
+        }
+    }
+
+    /**
+     * Returns the lines of a file, null if it does not exist, or the error if it cannot be read.
+     *
+     * @param string $fileName
+     *
+     * @return string[]|null
+     */
+    private function getLines(string $fileName): ?array
+    {
+        try {
+            if ($fileName === '' || ! $this->file->isFile($fileName)) {
+                return null;
+            }
+
+            return array_map('trim', explode("\n", trim($this->file->fileGetContents($fileName))));
+        } catch (FileSystemException $exception) {
+            return [$exception->getMessage()];
+        }
+    }
+
+    /**
+     * Returns a value of the run as string.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    private function stringValue(mixed $value): string
+    {
+        return is_scalar($value) ? (string)$value : '';
     }
 }

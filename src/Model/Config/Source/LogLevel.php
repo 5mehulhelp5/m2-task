@@ -2,78 +2,59 @@
 
 declare(strict_types=1);
 
-namespace Infrangible\Task\Model\Config\Source;
-
-use Magento\Framework\Data\OptionSourceInterface;
-
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
  */
-class LogLevel
-    implements OptionSourceInterface
+
+namespace Infrangible\Task\Model\Config\Source;
+
+use Infrangible\Task\Logger\LogLevels;
+use Magento\Framework\Data\OptionSourceInterface;
+use Magento\Framework\Phrase;
+use Psr\Log\LogLevel as PsrLogLevel;
+
+/**
+ * The log levels of tasks.
+ */
+class LogLevel implements OptionSourceInterface
 {
     /**
+     * Returns the log levels as options.
+     *
      * @return array
+     * @phpstan-return array<int, array{value: string, label: Phrase}>
      */
     public function toOptionArray(): array
     {
-        return [
-            [
-                'value' => 'off',
-                'label' => 'Off: no messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::EMERGENCY,
-                'label' => 'Fatal: emergency messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::ALERT,
-                'label' => 'Fatal: alert messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::CRITICAL,
-                'label' => 'Error: critical messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::ERROR,
-                'label' => 'Error: error messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::WARNING,
-                'label' => 'Warning: warning messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::NOTICE,
-                'label' => 'Info: normal but significant messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::INFO,
-                'label' => 'Info: informational messages'
-            ],
-            [
-                'value' => \Psr\Log\LogLevel::DEBUG,
-                'label' => 'Debug: debug messages'
-            ]
-        ];
+        $options = [];
+
+        foreach ($this->toArray() as $value => $label) {
+            $options[] = ['value' => $value, 'label' => $label];
+        }
+
+        return $options;
     }
 
     /**
+     * Returns the log levels as value => label.
+     *
      * @return array
+     * @phpstan-return array<string, Phrase>
      */
     public function toArray(): array
     {
         return [
-            'off'                        => 'Off: no messages',
-            \Psr\Log\LogLevel::EMERGENCY => 'Fatal: emergency messages',
-            \Psr\Log\LogLevel::ALERT     => 'Fatal: alert messages',
-            \Psr\Log\LogLevel::CRITICAL  => 'Error: critical messages',
-            \Psr\Log\LogLevel::ERROR     => 'Error: error messages',
-            \Psr\Log\LogLevel::WARNING   => 'Warning: warning messages',
-            \Psr\Log\LogLevel::NOTICE    => 'Info: normal but significant messages',
-            \Psr\Log\LogLevel::INFO      => 'Info: informational messages',
-            \Psr\Log\LogLevel::DEBUG     => 'Debug: debug messages'
+            LogLevels::OFF         => __('Off: no messages'),
+            PsrLogLevel::EMERGENCY => __('Fatal: emergency messages'),
+            PsrLogLevel::ALERT     => __('Fatal: alert messages'),
+            PsrLogLevel::CRITICAL  => __('Error: critical messages'),
+            PsrLogLevel::ERROR     => __('Error: error messages'),
+            PsrLogLevel::WARNING   => __('Warning: warning messages'),
+            PsrLogLevel::NOTICE    => __('Info: normal but significant messages'),
+            PsrLogLevel::INFO      => __('Info: informational messages'),
+            PsrLogLevel::DEBUG     => __('Debug: debug messages')
         ];
     }
 }

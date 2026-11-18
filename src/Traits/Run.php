@@ -2,16 +2,22 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\Task\Traits;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * The runs as objects of the list and view controllers of m2-backend-widget: they can only be viewed.
  */
 trait Run
 {
     /**
+     * Returns the key of the module.
+     *
      * @return string
      */
     protected function getModuleKey(): string
@@ -20,6 +26,8 @@ trait Run
     }
 
     /**
+     * Returns the resource key.
+     *
      * @return string
      */
     protected function getResourceKey(): string
@@ -28,6 +36,8 @@ trait Run
     }
 
     /**
+     * Returns the menu key.
+     *
      * @return string
      */
     protected function getMenuKey(): string
@@ -36,6 +46,8 @@ trait Run
     }
 
     /**
+     * Returns the object name.
+     *
      * @return string
      */
     protected function getObjectName(): string
@@ -44,6 +56,8 @@ trait Run
     }
 
     /**
+     * Returns the object field.
+     *
      * @return string|null
      */
     protected function getObjectField(): ?string
@@ -52,6 +66,8 @@ trait Run
     }
 
     /**
+     * Returns the title.
+     *
      * @return string
      */
     protected function getTitle(): string
@@ -60,6 +76,8 @@ trait Run
     }
 
     /**
+     * Allows the add.
+     *
      * @return bool
      */
     protected function allowAdd(): bool
@@ -68,6 +86,8 @@ trait Run
     }
 
     /**
+     * Allows the edit.
+     *
      * @return bool
      */
     protected function allowEdit(): bool
@@ -76,6 +96,8 @@ trait Run
     }
 
     /**
+     * Allows the view.
+     *
      * @return bool
      */
     protected function allowView(): bool
@@ -84,6 +106,8 @@ trait Run
     }
 
     /**
+     * Allows the delete.
+     *
      * @return bool
      */
     protected function allowDelete(): bool
@@ -92,6 +116,8 @@ trait Run
     }
 
     /**
+     * Returns the edit url route.
+     *
      * @return string
      */
     protected function getEditUrlRoute(): string

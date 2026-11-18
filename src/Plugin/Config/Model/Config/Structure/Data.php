@@ -2,83 +2,122 @@
 
 declare(strict_types=1);
 
+/**
+ * @author      Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
+ * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
 namespace Infrangible\Task\Plugin\Config\Model\Config\Structure;
 
-use FeWeDev\Base\Arrays;
-use FeWeDev\Base\Variables;
 use Infrangible\Task\Model\Config\Source\LogLevel;
 use Magento\Config\Model\Config\Source\Email\Identity;
 use Magento\Config\Model\Config\Source\Yesno;
 
 /**
- * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
- * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ * Adds the groups that every task has to the configuration sections in the tab "Tasks": settings, logging and the
+ * success and error summary. The section task_general holds the general values; the section of a task can overwrite
+ * each group and adds the setting "Depends On".
  */
 class Data
 {
-    /** @var Arrays */
-    protected $arrays;
+    /** Fields of the summaries. */
+    private const SUMMARY_FIELDS = [
+        'send'                  => ['type' => 'select', 'label' => 'Send', 'source' => Yesno::class],
+        'sender'                => [
+            'type'    => 'select',
+            'label'   => 'Sender',
+            'source'  => Identity::class,
+            'depends' => ['send' => '1']
+        ],
+        'recipients'            => [
+            'label'   => 'Recipients',
+            'comment' => 'Divided by semicolon',
+            'depends' => ['send' => '1']
+        ],
+        'copy_recipients'       => [
+            'label'   => 'Copy Recipients',
+            'comment' => 'Divided by semicolon',
+            'depends' => ['send' => '1']
+        ],
+        'blind_copy_recipients' => [
+            'label'   => 'Blind Copy Recipients',
+            'comment' => 'Divided by semicolon',
+            'depends' => ['send' => '1']
+        ],
+        'subject'               => ['label' => 'Subject', 'depends' => ['send' => '1']]
+    ];
 
-    /** @var Variables */
-    protected $variables;
-
-    public function __construct(Arrays $arrays, Variables $variables)
-    {
-        $this->arrays = $arrays;
-        $this->variables = $variables;
-    }
-
-    /** @noinspection PhpUnusedParameterInspection */
+    /**
+     * Adds the groups of tasks to the sections in the tab "Tasks", and sorts the fields of their groups.
+     *
+     * @param \Magento\Config\Model\Config\Structure\Data $object
+     * @param array $config
+     * @phpstan-param array<int|string, mixed> $config
+     *
+     * @return array
+     * @phpstan-return array{0: array<int|string, mixed>}
+     * @noinspection PhpUnusedParameterInspection
+     */
     public function beforeMerge(\Magento\Config\Model\Config\Structure\Data $object, array $config): array
     {
-        $sections = $this->arrays->getValue($config, 'config:system:sections');
+        $root = $config[ 'config' ] ?? null;
+        $system = is_array($root) ? ($root[ 'system' ] ?? null) : null;
+        $sections = is_array($system) ? ($system[ 'sections' ] ?? null) : null;
 
-        if (!$sections) {
+        if (! is_array($root) || ! is_array($system) || ! is_array($sections)) {
             return [$config];
         }
 
         foreach ($sections as $sectionName => $sectionData) {
-            $tab = $this->arrays->getValue($sectionData, 'tab');
-
-            if ($tab === 'tasks') {
-                $sectionData = array_replace_recursive(
-                    $sectionData,
-                    $this->getTaskSection($sectionName, $sectionName === 'task_general')
-                );
-
-                $groupsData = $this->arrays->getValue($sectionData, 'children', []);
-
-                foreach ($groupsData as $groupsKey => $groupData) {
-                    $fieldsData = $this->arrays->getValue($groupData, 'children', []);
-
-                    usort($fieldsData, function (array $fieldData1, $fieldData2) {
-                        $sortOrder1 = $this->arrays->getValue($fieldData1, 'sortOrder', 0);
-                        $sortOrder2 = $this->arrays->getValue($fieldData2, 'sortOrder', 0);
-
-                        return $sortOrder1 > $sortOrder2 ? 1 : ($sortOrder1 < $sortOrder2 ? -1 : 0);
-                    });
-
-                    $groupsData[$groupsKey]['children'] = $fieldsData;
-                }
-
-                $sectionData['children'] = $groupsData;
-
-                $config = $this->arrays->addDeepValue(
-                    $config,
-                    ['config', 'system', 'sections', $sectionName],
-                    $sectionData,
-                    true,
-                    true
-                );
+            if (! is_array($sectionData) || ($sectionData[ 'tab' ] ?? null) !== 'tasks') {
+                continue;
             }
+
+            $sectionName = (string)$sectionName;
+            $sectionData = array_replace_recursive(
+                $sectionData,
+                $this->getTaskSection($sectionName, $sectionName === 'task_general')
+            );
+
+            $groups = is_array($sectionData[ 'children' ] ?? null) ? $sectionData[ 'children' ] : [];
+
+            foreach ($groups as $groupName => $groupData) {
+                if (is_array($groupData) && is_array($groupData[ 'children' ] ?? null)) {
+                    $fields = $groupData[ 'children' ];
+
+                    uasort($fields, fn(mixed $field1, mixed $field2): int => $this->getSortOrder($field1) <=>
+                        $this->getSortOrder($field2));
+
+                    $groups[ $groupName ][ 'children' ] = $fields;
+                }
+            }
+
+            $sectionData[ 'children' ] = $groups;
+
+            $sections[ $sectionName ] = $sectionData;
         }
+
+        $system[ 'sections' ] = $sections;
+        $root[ 'system' ] = $system;
+        $config[ 'config' ] = $root;
 
         return [$config];
     }
 
+    /**
+     * Returns the groups of a task section.
+     *
+     * @param string $taskName
+     * @param bool $isGeneralTask
+     *
+     * @return array
+     * @phpstan-return array<string, mixed>
+     */
     public function getTaskSection(string $taskName, bool $isGeneralTask): array
     {
+        $generalSettings = ['max_memory', 'wait_for_predecessor', 'suppress_empty_mails'];
+
         $groupsData = [
             'settings'        => [
                 'label'  => 'Settings',
@@ -101,11 +140,7 @@ class Data
             'logging'         => [
                 'label'  => 'Logging',
                 'fields' => [
-                    'log_level'         => [
-                        'type'   => 'select',
-                        'label'  => 'Log Level',
-                        'source' => LogLevel::class
-                    ],
+                    'log_level'         => ['type' => 'select', 'label' => 'Log Level', 'source' => LogLevel::class],
                     'log_warn_as_error' => [
                         'type'   => 'select',
                         'label'  => 'Log Warning as Error',
@@ -113,122 +148,46 @@ class Data
                     ]
                 ]
             ],
-            'summary_success' => [
-                'label'  => 'Success Summary',
-                'fields' => [
-                    'send'                  => [
-                        'type'   => 'select',
-                        'label'  => 'Send',
-                        'source' => Yesno::class
-                    ],
-                    'sender'                => [
-                        'type'    => 'select',
-                        'label'   => 'Sender',
-                        'source'  => Identity::class,
-                        'depends' => ['send' => '1']
-                    ],
-                    'recipients'            => [
-                        'label'   => 'Recipients',
-                        'comment' => 'Divided by semicolon',
-                        'depends' => ['send' => '1']
-                    ],
-                    'copy_recipients'       => [
-                        'label'   => 'Copy Recipients',
-                        'comment' => 'Divided by semicolon',
-                        'depends' => ['send' => '1']
-                    ],
-                    'blind_copy_recipients' => [
-                        'label'   => 'Blind Copy Recipients',
-                        'comment' => 'Divided by semicolon',
-                        'depends' => ['send' => '1']
-                    ],
-                    'subject'               => [
-                        'label'   => 'Subject',
-                        'depends' => ['send' => '1']
-                    ]
-                ]
-            ],
-            'summary_error'   => [
-                'label'  => 'Error Summary',
-                'fields' => [
-                    'send'                  => [
-                        'type'   => 'select',
-                        'label'  => 'Send',
-                        'source' => Yesno::class
-                    ],
-                    'sender'                => [
-                        'type'    => 'select',
-                        'label'   => 'Sender',
-                        'source'  => Identity::class,
-                        'depends' => ['send' => '1']
-                    ],
-                    'recipients'            => [
-                        'label'   => 'Recipients',
-                        'comment' => 'Divided by semicolon',
-                        'depends' => ['send' => '1']
-                    ],
-                    'copy_recipients'       => [
-                        'label'   => 'Copy Recipients',
-                        'comment' => 'Divided by semicolon',
-                        'depends' => ['send' => '1']
-                    ],
-                    'blind_copy_recipients' => [
-                        'label'   => 'Blind Copy Recipients',
-                        'comment' => 'Divided by semicolon',
-                        'depends' => ['send' => '1']
-                    ],
-                    'subject'               => [
-                        'label'   => 'Subject',
-                        'depends' => ['send' => '1']
-                    ]
-                ]
-            ]
+            'summary_success' => ['label' => 'Success Summary', 'fields' => self::SUMMARY_FIELDS],
+            'summary_error'   => ['label' => 'Error Summary', 'fields' => self::SUMMARY_FIELDS]
         ];
 
-        if (!$isGeneralTask) {
-            $groupsData['settings']['fields']['depends_on'] = [
+        if (! $isGeneralTask) {
+            $groupsData[ 'settings' ][ 'fields' ][ 'depends_on' ] = [
                 'label'     => 'Depends On',
                 'comment'   => 'Other tasks divided by semicolon',
                 'sortOrder' => 20
             ];
 
-            foreach (['settings', 'logging', 'summary_success', 'summary_error'] as $groupName) {
-                $groupsData[$groupName]['fields']['overwrite_task_general'] = [
+            foreach ($groupsData as $groupName => $groupData) {
+                foreach (array_keys($groupData[ 'fields' ]) as $fieldName) {
+                    if ($groupName !== 'settings' || in_array($fieldName, $generalSettings, true)) {
+                        $depends = $groupData[ 'fields' ][ $fieldName ][ 'depends' ] ?? [];
+
+                        $groupsData[ $groupName ][ 'fields' ][ $fieldName ][ 'depends' ] =
+                            ['overwrite_task_general' => '1'] + $depends;
+                    }
+                }
+
+                $groupsData[ $groupName ][ 'fields' ][ 'overwrite_task_general' ] = [
                     'type'      => 'select',
                     'label'     => 'Overwrite Task General',
                     'source'    => Yesno::class,
                     'sortOrder' => 5
                 ];
-
-                if ($groupName === 'settings') {
-                    foreach (['max_memory', 'wait_for_predecessor', 'suppress_empty_mails'] as $fieldName) {
-                        $groupsData[$groupName]['fields'][$fieldName]['depends'] = ['overwrite_task_general' => '1'];
-                    }
-                }
-
-                if ($groupName === 'logging') {
-                    foreach (['log_level', 'log_warn_as_error'] as $fieldName) {
-                        $groupsData[$groupName]['fields'][$fieldName]['depends'] = ['overwrite_task_general' => '1'];
-                    }
-                }
-
-                if ($groupName === 'summary_success' || $groupName === 'summary_error') {
-                    foreach (['send', 'sender', 'recipients', 'copy_recipients', 'blind_copy_recipients', 'subject'] as
-                        $fieldName) {
-                        $groupsData[$groupName]['fields'][$fieldName]['depends'] = ['overwrite_task_general' => '1'];
-                    }
-                }
             }
         }
 
         $groups = [];
 
         foreach ($groupsData as $groupName => $groupData) {
-            $groupLabel = $this->arrays->getValue($groupData, 'label', '');
-            $groupFields = $this->arrays->getValue($groupData, 'fields');
-
-            $groups[$groupName] =
-                $this->getTaskSectionGroup($taskName, $groupName, $groupLabel, count($groups) + 10, $groupFields);
+            $groups[ $groupName ] = $this->getTaskSectionGroup(
+                $taskName,
+                $groupName,
+                $groupData[ 'label' ],
+                count($groups) + 10,
+                $groupData[ 'fields' ]
+            );
         }
 
         return [
@@ -241,6 +200,19 @@ class Data
         ];
     }
 
+    /**
+     * Returns a group of a task section.
+     *
+     * @param string $taskName
+     * @param string $groupName
+     * @param string $label
+     * @param int $sortOrder
+     * @param array $fieldsData
+     * @phpstan-param array<string, array<string, mixed>> $fieldsData
+     *
+     * @return array
+     * @phpstan-return array<string, mixed>
+     */
     public function getTaskSectionGroup(
         string $taskName,
         string $groupName,
@@ -251,23 +223,16 @@ class Data
         $fields = [];
 
         foreach ($fieldsData as $fieldName => $fieldData) {
-            $fieldType = $this->arrays->getValue($fieldData, 'type', 'text');
-            $fieldLabel = $this->arrays->getValue($fieldData, 'label', '');
-            $fieldComment = $this->arrays->getValue($fieldData, 'comment', '');
-            $fieldSourceModel = $this->arrays->getValue($fieldData, 'source', '');
-            $fieldDepends = $this->arrays->getValue($fieldData, 'depends', []);
-            $fieldSortOrder = $this->arrays->getValue($fieldData, 'sortOrder', count($fields) + 10);
-
-            $fields[$fieldName] = $this->getTaskSectionField(
+            $fields[ $fieldName ] = $this->getTaskSectionField(
                 $taskName,
                 $groupName,
                 $fieldName,
-                $fieldType,
-                $fieldLabel,
-                $fieldComment,
-                $fieldSourceModel,
-                $fieldDepends,
-                $fieldSortOrder
+                $this->stringValue($fieldData[ 'type' ] ?? 'text'),
+                $this->stringValue($fieldData[ 'label' ] ?? ''),
+                $this->stringValue($fieldData[ 'comment' ] ?? ''),
+                $this->stringValue($fieldData[ 'source' ] ?? ''),
+                is_array($fieldData[ 'depends' ] ?? null) ? $fieldData[ 'depends' ] : [],
+                is_int($fieldData[ 'sortOrder' ] ?? null) ? $fieldData[ 'sortOrder' ] : count($fields) + 10
             );
         }
 
@@ -286,6 +251,23 @@ class Data
         ];
     }
 
+    /**
+     * Returns a field of a task section.
+     *
+     * @param string $taskName
+     * @param string $groupName
+     * @param string $fieldName
+     * @param string $type
+     * @param string $label
+     * @param string $comment
+     * @param string $sourceClass
+     * @param array $depends
+     * @param int $sortOrder
+     * @phpstan-param array<int|string, mixed> $depends
+     *
+     * @return array
+     * @phpstan-return array<string, mixed>
+     */
     public function getTaskSectionField(
         string $taskName,
         string $groupName,
@@ -310,29 +292,49 @@ class Data
             'showInStore'   => 1
         ];
 
-        if (!$this->variables->isEmpty($comment)) {
-            $fieldData['comment'] = $comment;
+        if ($comment !== '') {
+            $fieldData[ 'comment' ] = $comment;
         }
 
-        if (!$this->variables->isEmpty($sourceClass)) {
-            $fieldData['source_model'] = $sourceClass;
+        if ($sourceClass !== '') {
+            $fieldData[ 'source_model' ] = $sourceClass;
         }
 
-        if (!$this->variables->isEmpty($depends)) {
-            foreach ($depends as $dependFieldName => $dependFieldValue) {
-                $fieldData['depends']['fields'][$dependFieldName] = [
-                    '_elementType' => 'field',
-                    'id'           => sprintf('%s/%s/%s', $taskName, $groupName, $dependFieldName),
-                    'value'        => $dependFieldValue,
-                    'dependPath'   => [
-                        $taskName,
-                        $groupName,
-                        $dependFieldName
-                    ]
-                ];
-            }
+        foreach ($depends as $dependFieldName => $dependFieldValue) {
+            $fieldData[ 'depends' ][ 'fields' ][ $dependFieldName ] = [
+                '_elementType' => 'field',
+                'id'           => sprintf('%s/%s/%s', $taskName, $groupName, $dependFieldName),
+                'value'        => $dependFieldValue,
+                'dependPath'   => [$taskName, $groupName, $dependFieldName]
+            ];
         }
 
         return $fieldData;
+    }
+
+    /**
+     * Returns the sort order of a field.
+     *
+     * @param mixed $field
+     *
+     * @return int
+     */
+    private function getSortOrder(mixed $field): int
+    {
+        $sortOrder = is_array($field) ? ($field[ 'sortOrder' ] ?? 0) : 0;
+
+        return is_numeric($sortOrder) ? (int)$sortOrder : 0;
+    }
+
+    /**
+     * Returns a value as string.
+     *
+     * @param mixed $value
+     *
+     * @return string
+     */
+    private function stringValue(mixed $value): string
+    {
+        return is_scalar($value) ? (string)$value : '';
     }
 }

@@ -1,31 +1,64 @@
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2023 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
  */
 
-.task-run-status-running, .task-run-status-finished, .task-run-status-broken {
-  display: block;
-  padding: 0 3px;
-  color: #000;
-  text-transform: uppercase;
-  text-align: center;
-  white-space: nowrap;
-  font-weight: bold;
-  line-height: 17px;
+@task-status__color: #000;
+@task-status-running__background: #ffa;
+@task-status-running__border-color: #bb0;
+@task-status-finished__background: #afa;
+@task-status-finished__border-color: #0b0;
+@task-status-broken__background: #faa;
+@task-status-broken__border-color: #b00;
+@task-log-error__color: #800;
+@task-log-warning__color: #880;
+@task-log-info__color: #060;
+
+.task-run-status-running,
+.task-run-status-finished,
+.task-run-status-broken {
+    color: @task-status__color;
+    display: block;
+    font-weight: bold;
+    line-height: 17px;
+    padding: 0 3px;
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .task-run-status-running {
-  background: #ffa none repeat scroll 0 0;
-  border: 1px solid #bb0;
+    background: @task-status-running__background;
+    border: 1px solid @task-status-running__border-color;
 }
 
 .task-run-status-finished {
-  background: #afa none repeat scroll 0 0;
-  border: 1px solid #0b0;
+    background: @task-status-finished__background;
+    border: 1px solid @task-status-finished__border-color;
 }
 
 .task-run-status-broken {
-  background: #faa none repeat scroll 0 0;
-  border: 1px solid #b00;
+    background: @task-status-broken__background;
+    border: 1px solid @task-status-broken__border-color;
+}
+
+.task-log {
+    font-family: 'courier new', monospace;
+}
+
+.task-log-error {
+    color: @task-log-error__color;
+}
+
+.task-log-warning {
+    color: @task-log-warning__color;
+}
+
+.task-log-info {
+    color: @task-log-info__color;
+}
+
+.task-log-title {
+    margin-top: 2rem;
 }

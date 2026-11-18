@@ -4,20 +4,30 @@ declare(strict_types=1);
 
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
  */
-use Psr\Log\LogLevel;
-use Infrangible\Task\Logger\Record;
-/* @var Magento\Backend\Block\Template $block */
-/** @var Record[] $result */
-$result = $block->getData('result');
-?>
 
-<h2><?php echo $block->escapeHtml($block->getData('title')); ?></h2>
-<div style="font-family: 'courier new', monospace;">
-    <?php foreach ($result as $event): ?>
-        <?php $code = strcasecmp($event->getLevel(), LogLevel::EMERGENCY) === 0 || strcasecmp($event->getLevel(), LogLevel::ALERT) === 0 || strcasecmp($event->getLevel(), LogLevel::CRITICAL) === 0 || strcasecmp($event->getLevel(), LogLevel::ERROR) === 0 ? '800' : (strcasecmp($event->getLevel(), LogLevel::WARNING) === 0 ? '880' : '060'); ?>
-        <div style="color: #<?php echo $code; ?>;"><?php echo $block->escapeHtml(trim($event->getMessage())); ?></div>
+use Infrangible\Task\Logger\Record;
+use Magento\Framework\Escaper;
+use Magento\Framework\View\Element\Template;
+use Psr\Log\LogLevel;
+
+/** @var Template $block */
+/** @var Escaper $escaper */
+
+$result = $block->getData('result');
+$title = $block->getData('title');
+?>
+<h2><?= $escaper->escapeHtml(is_scalar($title) || $title instanceof Stringable ? (string)$title : '') ?></h2>
+<div class="task-log">
+    <?php foreach (is_array($result) ? $result : [] as $record): ?>
+        <?php if ($record instanceof Record): ?>
+            <?php $level = strtolower($record->getLevel()) ?>
+            <?php $errorLevels = [LogLevel::EMERGENCY, LogLevel::ALERT, LogLevel::CRITICAL, LogLevel::ERROR] ?>
+            <?php $class = in_array($level, $errorLevels, true) ? 'task-log-error' :
+                ($level === LogLevel::WARNING ? 'task-log-warning' : 'task-log-info') ?>
+            <div class="<?= /* @noEscape */ $class ?>"><?= $escaper->escapeHtml(trim($record->getMessage())) ?></div>
+        <?php endif; ?>
     <?php endforeach; ?>
 </div>

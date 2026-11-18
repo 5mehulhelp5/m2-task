@@ -2,45 +2,58 @@
 
 declare(strict_types=1);
 
-namespace Infrangible\Task\Helper;
-
-use FeWeDev\Base\Variables;
-use Infrangible\Core\Helper\Instances;
-use Infrangible\Task\Task\Base;
-
 /**
  * @author      Andreas Knollmann
- * @copyright   2014-2024 Softwareentwicklung Andreas Knollmann
+ * @copyright   Copyright (c) 2014-2026 Softwareentwicklung Andreas Knollmann
  * @license     http://www.opensource.org/licenses/mit-license.php MIT
+ */
+
+namespace Infrangible\Task\Helper;
+
+use Infrangible\Core\Helper\Instances;
+use Infrangible\Task\Task\Base;
+use LogicException;
+use Magento\Framework\Exception\FileSystemException;
+use Magento\Framework\Exception\LocalizedException;
+
+/**
+ * Creates and runs tasks.
  */
 class Task
 {
-    /** @var Variables */
-    protected $variables;
-
-    /** @var Instances */
-    protected $instanceHelper;
-
-    public function __construct(Variables $variables, Instances $instanceHelper)
+    /**
+     * @param Instances $instanceHelper
+     */
+    public function __construct(protected Instances $instanceHelper)
     {
-        $this->variables = $variables;
-        $this->instanceHelper = $instanceHelper;
     }
 
     /**
-     * @throws \Exception
+     * Creates and runs a task.
+     *
+     * @param string $storeCode
+     * @param string $taskName
+     * @param string $className
+     * @param string|null $taskId the time, if empty
+     * @param string|null $logLevel the configured log level, if empty
+     * @param bool $console
+     * @param bool $test
+     *
+     * @return bool
+     * @throws LocalizedException
+     * @throws FileSystemException
      */
     public function runTask(
         string $storeCode,
         string $taskName,
         string $className,
-        string $taskId = null,
-        string $logLevel = null,
+        ?string $taskId = null,
+        ?string $logLevel = null,
         bool $console = false,
         bool $test = false
     ): bool {
-        if ($this->variables->isEmpty($taskName)) {
-            throw new \Exception('Please specify a task name!');
+        if ($taskName === '') {
+            throw new LocalizedException(__('Please specify a task name!'));
         }
 
         $task = $this->getTask($className);
@@ -49,25 +62,33 @@ class Task
     }
 
     /**
-     * @throws \Exception
+     * Runs a task.
+     *
+     * @param Base $task
+     * @param string $storeCode
+     * @param string $taskName
+     * @param string|null $taskId the time, if empty
+     * @param string|null $logLevel the configured log level, if empty
+     * @param bool $console
+     * @param bool $test
+     *
+     * @return bool
+     * @throws LocalizedException
+     * @throws FileSystemException
      */
     public function launchTask(
         Base $task,
         string $storeCode,
         string $taskName,
-        string $taskId = null,
-        string $logLevel = null,
+        ?string $taskId = null,
+        ?string $logLevel = null,
         bool $console = false,
         bool $test = false
     ): bool {
-        if ($this->variables->isEmpty($taskId)) {
-            $taskId = date('Y-m-d_H-i-s');
-        }
-
         $task->init(
             $storeCode,
             $taskName,
-            $taskId,
+            $taskId === null || $taskId === '' ? date('Y-m-d_H-i-s') : $taskId,
             $logLevel,
             $console,
             $test
@@ -77,14 +98,18 @@ class Task
     }
 
     /**
-     * @throws \Exception
+     * Creates a task.
+     *
+     * @param string $className
+     *
+     * @return Base
      */
     public function getTask(string $className): Base
     {
         $task = $this->instanceHelper->getInstance($className);
 
-        if (!($task instanceof Base)) {
-            throw new \Exception(sprintf('Task must extend class: %s', Base::class));
+        if (! $task instanceof Base) {
+            throw new LogicException(sprintf('Task must extend class: %s', Base::class));
         }
 
         return $task;
