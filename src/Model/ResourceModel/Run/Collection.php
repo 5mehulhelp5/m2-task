@@ -12,7 +12,6 @@ namespace Infrangible\Task\Model\ResourceModel\Run;
 
 use Infrangible\Task\Model\Run;
 use Magento\Framework\DB\Select;
-use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 
 /**
@@ -48,7 +47,6 @@ class Collection extends AbstractCollection
      * Filters the runs that have not finished.
      *
      * @return void
-     * @throws LocalizedException
      */
     public function addIsRunningFilter(): void
     {
@@ -61,7 +59,6 @@ class Collection extends AbstractCollection
      * @param int $days
      *
      * @return void
-     * @throws LocalizedException
      */
     public function addStartAtFilter(int $days = 90): void
     {

@@ -51,13 +51,10 @@ class TaskName implements OptionSourceInterface
      */
     public function toOptionArray(): array
     {
-        $options = [];
-
-        foreach ($this->getTaskNames() as $taskName) {
-            $options[] = ['value' => $taskName, 'label' => $taskName];
-        }
-
-        return $options;
+        return array_map(
+            static fn(string $taskName): array => ['value' => $taskName, 'label' => $taskName],
+            array_values($this->getTaskNames())
+        );
     }
 
     /**
